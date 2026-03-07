@@ -8,8 +8,7 @@ import { RouterOutlet } from '@angular/router';
   standalone: true,
   imports: [RouterOutlet],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss',
-  template: '<div></div>'
+  styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit, OnDestroy {
   title = 'my-angular-app';

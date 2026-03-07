@@ -1,19 +1,56 @@
 import * as p5 from 'p5';
 
 export function sketch(p5: p5) {
-  const makeArray = (cols: number, rows: number) =>
-    new Array(cols * rows).fill(0);
-  let grid: number[];
-  let next: number[];
-  let lifespans: number[]; // Array to track lifespans of cells created by mouseDragged
+  let grid: Float64Array;
+  let next: Float64Array;
+  let lifespans: Uint8Array; // Array to track lifespans of cells created by mouseDragged
+  let nextLifespans: Uint8Array;
   let cols: number;
   let rows: number;
-  let resolution = 8;
+  let colLeft: Int32Array;
+  let colRight: Int32Array;
+  let rowUp: Int32Array;
+  let rowDown: Int32Array;
+  let isPaused = false;
+  let resolution = 4;
   let longevity = 30;
   let hueValue = 90;
-  let dragRange = 2;
+  let dragRange = 5;
   let hueVariation = 5;
   let spawns = 100;
+
+  const setPaused = (paused: boolean) => {
+    isPaused = paused;
+    (p5 as any).__paused = paused;
+  };
+
+  const resume = () => {
+    if (isPaused) {
+      setPaused(false);
+      p5.loop();
+    }
+  };
+
+  const initBuffers = () => {
+    const size = cols * rows;
+    grid = new Float64Array(size);
+    next = new Float64Array(size);
+    lifespans = new Uint8Array(size);
+    nextLifespans = new Uint8Array(size);
+    colLeft = new Int32Array(cols);
+    colRight = new Int32Array(cols);
+    rowUp = new Int32Array(rows);
+    rowDown = new Int32Array(rows);
+
+    for (let i = 0; i < cols; i++) {
+      colLeft[i] = (i - 1 + cols) % cols;
+      colRight[i] = (i + 1) % cols;
+    }
+    for (let j = 0; j < rows; j++) {
+      rowUp[j] = (j - 1 + rows) % rows;
+      rowDown[j] = (j + 1) % rows;
+    }
+  };
 
   p5.setup = () => {
     p5.createCanvas(1800, 1000).parent('sketch-holder');
@@ -21,9 +58,7 @@ export function sketch(p5: p5) {
     cols = p5.width / resolution;
     rows = p5.height / resolution;
 
-    grid = makeArray(cols, rows);
-    next = makeArray(cols, rows);
-    lifespans = makeArray(cols, rows); // Initialize lifespan array
+    initBuffers(); // Initialize lifespan array
 
     for (let i = 0; i < cols * rows; i++) {
       grid[i] = p5.random(1) < 0.01 ? 0 : p5.random(1, 180);
@@ -38,13 +73,17 @@ export function sketch(p5: p5) {
   };
 
   p5.mouseDragged = () => {
+    resume();
     let col = Math.floor(p5.mouseX / resolution);
     let row = Math.floor(p5.mouseY / resolution);
     if (col >= 0 && col < cols && row >= 0 && row < rows) {
 
       for (let i = -dragRange; i < dragRange; i++) {
         for (let j = -dragRange; j < dragRange; j++) {
-          let idx = (col-i) + ((row-j) * (cols));
+          let x = col - i;
+          let y = row - j;
+          if (x < 0 || x >= cols || y < 0 || y >= rows) continue;
+          let idx = x + (y * cols);
           grid[idx] = hueValue;
           lifespans[idx] = longevity; // Cells created by mouseDragged get 5 generations of life
         }
@@ -59,98 +98,91 @@ export function sketch(p5: p5) {
 
   p5.draw = () => {
     p5.background(0);
+    p5.noStroke();
+    let changed = false;
 
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        let idx = i + j * cols;
-        if (grid[idx] > 0) {
-          p5.fill(grid[idx], 255, 255);
-          p5.noStroke();
-          p5.rect(i * resolution, j * resolution, resolution, resolution);
+    for (let y = 0; y < rows; y++) {
+      const yUp = rowUp[y];
+      const yDown = rowDown[y];
+      const row = y * cols;
+      const rowUpOff = yUp * cols;
+      const rowDownOff = yDown * cols;
+
+      for (let x = 0; x < cols; x++) {
+        const idx = row + x;
+        const state = grid[idx];
+
+        if (state > 0) {
+          p5.fill(state, 255, 255);
+          p5.rect(x * resolution, y * resolution, resolution, resolution);
         }
-      }
-    }
 
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < rows; j++) {
-        let idx = i + j * cols;
-        let state = grid[idx];
-        let neighbors = countNeighbors(grid, i, j, cols, rows);
-        let totalHue = neighborsAverageHue(grid, i, j, cols, rows);
+        const xL = colLeft[x];
+        const xR = colRight[x];
+
+        let neighbors = 0;
+        let hueSum = 0;
+
+        let v = grid[rowUpOff + xL];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[rowUpOff + x];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[rowUpOff + xR];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[row + xL];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[row + xR];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[rowDownOff + xL];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[rowDownOff + x];
+        if (v > 0) neighbors++;
+        hueSum += v;
+        v = grid[rowDownOff + xR];
+        if (v > 0) neighbors++;
+        hueSum += v;
+
+        let nextValue = state;
+        let nextLife = lifespans[idx];
 
         if (state == 0 && neighbors == 3) {
-          next[idx] = totalHue / neighbors;
-          // next[idx+(-300)] = totalHue / neighbors;
-          // next[idx+300] = totalHue / neighbors;
+          nextValue = hueSum / neighbors;
+          nextLife = 0;
         } else if (state > 0 && (neighbors < 2 || neighbors > 3)) {
-          if (lifespans[idx] != 0) {
-            lifespans[idx]--; // Decrease lifespan if it's still greater than 0
-            next[idx] = hueValue; // Keep alive while lifespan is positive
+          if (nextLife != 0) {
+            nextLife = nextLife - 1;
+            nextValue = hueValue;
           } else {
-            next[idx] = 0; // Die if lifespan has expired or wasn't set
+            nextValue = 0;
+            nextLife = 0;
           }
-        } else {
-          next[idx] = state;
+        }
+
+        next[idx] = nextValue;
+        nextLifespans[idx] = nextLife;
+        if (!changed && (nextValue !== state || nextLife !== lifespans[idx])) {
+          changed = true;
         }
       }
     }
 
-    // Swap grids and reset lifespans of cells that died
+    // Swap grids and lifespans
     let temp = grid;
     grid = next;
     next = temp;
-    for (let i = 0; i < cols * rows; i++) {
-      if (grid[i] === 0) lifespans[i] = 0;
+    let tempLife = lifespans;
+    lifespans = nextLifespans;
+    nextLifespans = tempLife;
+
+    if (!changed) {
+      setPaused(true);
+      p5.noLoop();
     }
-  };
-
-  const countNeighbors = (
-    grid: number[],
-    x: number,
-    y: number,
-    cols: number,
-    rows: number
-  ) => {
-    let sum = 0;
-    for (let i = -1; i <= 1; i++) {
-      for (let j = -1; j <= 1; j++) {
-        let col = (x + i + cols) % cols;
-        let row = (y + j + rows) % rows;
-        let cellValue = grid[col + row * cols];
-
-        // Normalizes cellValue if not 0
-        if (cellValue > 0) {
-          sum += cellValue / cellValue;
-        } else {
-          sum += cellValue;
-        }
-      }
-    }
-    if (grid[x + y * cols] / grid[x + y * cols] > 0) {
-      return sum - grid[x + y * cols] / grid[x + y * cols];
-    } else {
-      return sum;
-    }
-  };
-
-  const neighborsAverageHue = (
-    grid: number[],
-    x: number,
-    y: number,
-    cols: number,
-    rows: number
-  ) => {
-    let sum = 0;
-    for (let i = -1; i <= 1; i++) {
-      for (let j = -1; j <= 1; j++) {
-        let col = (x + i + cols) % cols;
-        let row = (y + j + rows) % rows;
-        let cellValue = grid[col + row * cols];
-
-        sum += cellValue;
-      }
-    }
-
-    return sum;
   };
 }
