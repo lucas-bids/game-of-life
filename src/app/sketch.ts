@@ -12,11 +12,12 @@ export function sketch(p5: p5) {
   let rowUp: Int32Array;
   let rowDown: Int32Array;
   let isPaused = false;
+  const paletteHues = [30, 120, 210, 280];
+  let paletteIndex = 0;
   let resolution = 4;
   let longevity = 30;
-  let hueValue = 90;
+  let hueValue = paletteHues[0];
   let dragRange = 5;
-  let hueVariation = 5;
   let spawns = 100;
 
   const setPaused = (paused: boolean) => {
@@ -72,6 +73,12 @@ export function sketch(p5: p5) {
     }
   };
 
+  p5.mousePressed = () => {
+    resume();
+    hueValue = paletteHues[paletteIndex];
+    paletteIndex = (paletteIndex + 1) % paletteHues.length;
+  };
+
   p5.mouseDragged = () => {
     resume();
     let col = Math.floor(p5.mouseX / resolution);
@@ -89,15 +96,10 @@ export function sketch(p5: p5) {
         }
       }
     }
-
-    hueValue += hueVariation;
-    if (hueValue > 360) {
-      hueValue = 1;
-    }
   };
 
   p5.draw = () => {
-    p5.background(0);
+    p5.background(247);
     p5.noStroke();
     let changed = false;
 
