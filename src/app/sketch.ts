@@ -8,7 +8,7 @@ export function sketch(p5: p5) {
   let lifespans: number[]; // Array to track lifespans of cells created by mouseDragged
   let cols: number;
   let rows: number;
-  let resolution = 4;
+  let resolution = 8;
   let longevity = 30;
   let hueValue = 90;
   let dragRange = 2;
@@ -80,7 +80,7 @@ export function sketch(p5: p5) {
 
         if (state == 0 && neighbors == 3) {
           next[idx] = totalHue / neighbors;
-          next[idx+(-300)] = totalHue / neighbors;
+          // next[idx+(-300)] = totalHue / neighbors;
           // next[idx+300] = totalHue / neighbors;
         } else if (state > 0 && (neighbors < 2 || neighbors > 3)) {
           if (lifespans[idx] != 0) {
