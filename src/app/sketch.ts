@@ -154,7 +154,7 @@ export function sketch(p5: p5) {
     lastTouchAt = Date.now();
     handlePress();
     if (p5.touches.length > 0) {
-      const touch = p5.touches[0];
+      const touch = p5.touches[0] as { x: number; y: number };
       handleDragAt(touch.x, touch.y);
     }
     return false;
@@ -162,7 +162,7 @@ export function sketch(p5: p5) {
 
   p5.touchMoved = () => {
     if (p5.touches.length > 0) {
-      const touch = p5.touches[0];
+      const touch = p5.touches[0] as { x: number; y: number };
       handleDragAt(touch.x, touch.y);
     }
     return false;
