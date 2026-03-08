@@ -1,0 +1,22 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.main,
+.content {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+#sketch-holder {
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+#sketch-holder canvas {
+  display: block;
+  touch-action: none;
+  user-select: none;
+}

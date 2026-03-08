@@ -21,6 +21,7 @@ export function sketch(p5: p5) {
   let hueValue = paletteHues[0];
   let dragRange = 5;
   let spawns = 100;
+  let lastTouchAt = 0;
 
   const setPaused = (paused: boolean) => {
     isPaused = paused;
@@ -102,7 +103,10 @@ export function sketch(p5: p5) {
 
   p5.setup = () => {
     const { width, height } = getCanvasSize();
-    p5.createCanvas(width, height).parent('sketch-holder');
+    const canvas = p5.createCanvas(width, height);
+    canvas.parent('sketch-holder');
+    canvas.elt.style.touchAction = 'none';
+    canvas.elt.style.userSelect = 'none';
     p5.colorMode(p5.HSB, 360, 255, 255);
     resolution = getResolution(width, height);
     cols = Math.floor(p5.width / resolution);
@@ -112,16 +116,16 @@ export function sketch(p5: p5) {
     seedGrid(true);
   };
 
-  p5.mousePressed = () => {
+  const handlePress = () => {
     resume();
     hueValue = paletteHues[paletteIndex];
     paletteIndex = (paletteIndex + 1) % paletteHues.length;
   };
 
-  p5.mouseDragged = () => {
+  const handleDragAt = (x: number, y: number) => {
     resume();
-    let col = Math.floor(p5.mouseX / resolution);
-    let row = Math.floor(p5.mouseY / resolution);
+    let col = Math.floor(x / resolution);
+    let row = Math.floor(y / resolution);
     if (col >= 0 && col < cols && row >= 0 && row < rows) {
 
       for (let i = -dragRange; i < dragRange; i++) {
@@ -135,6 +139,33 @@ export function sketch(p5: p5) {
         }
       }
     }
+  };
+
+  p5.mousePressed = () => {
+    if (Date.now() - lastTouchAt < 500) return;
+    handlePress();
+  };
+
+  p5.mouseDragged = () => {
+    handleDragAt(p5.mouseX, p5.mouseY);
+  };
+
+  p5.touchStarted = () => {
+    lastTouchAt = Date.now();
+    handlePress();
+    if (p5.touches.length > 0) {
+      const touch = p5.touches[0];
+      handleDragAt(touch.x, touch.y);
+    }
+    return false;
+  };
+
+  p5.touchMoved = () => {
+    if (p5.touches.length > 0) {
+      const touch = p5.touches[0];
+      handleDragAt(touch.x, touch.y);
+    }
+    return false;
   };
 
   p5.draw = () => {
