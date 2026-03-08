@@ -12,9 +12,11 @@ export function sketch(p5: p5) {
   let rowUp: Int32Array;
   let rowDown: Int32Array;
   let isPaused = false;
+  const maxCanvasWidth = 1200;
+  const maxCanvasHeight = 800;
   const paletteHues = [30, 120, 210, 280];
   let paletteIndex = 0;
-  let resolution = 4;
+  let resolution = 0;
   let longevity = 30;
   let hueValue = paletteHues[0];
   let dragRange = 5;
@@ -53,24 +55,61 @@ export function sketch(p5: p5) {
     }
   };
 
-  p5.setup = () => {
-    p5.createCanvas(1800, 1000).parent('sketch-holder');
-    p5.colorMode(p5.HSB, 360, 255, 255);
-    cols = p5.width / resolution;
-    rows = p5.height / resolution;
+  const getCanvasSize = () => {
+    return {
+      width: Math.min(p5.windowWidth, maxCanvasWidth),
+      height: Math.min(p5.windowHeight, maxCanvasHeight),
+    };
+  };
 
-    initBuffers(); // Initialize lifespan array
+  const getResolution = (width: number, height: number) => {
+    const minDim = Math.min(width, height);
+    if (minDim < 320) return 2;
+    if (minDim < 420) return 3;
+    return 4;
+  };
 
+  const seedGrid = (drawPreview: boolean) => {
     for (let i = 0; i < cols * rows; i++) {
       grid[i] = p5.random(1) < 0.01 ? 0 : p5.random(1, 180);
-      if ((i % cols) % 4 == 0) {
-        p5.fill(grid[i], 255, 255 );
+      if (drawPreview && (i % cols) % 4 == 0) {
+        p5.fill(grid[i], 255, 255);
         p5.noStroke();
-        p5.rect(i * resolution, ((p5.floor(i/cols)) * resolution), resolution, resolution);
+        p5.rect(i * resolution, p5.floor(i / cols) * resolution, resolution, resolution);
       }
-
-      // grid[i] = 0;
     }
+  };
+
+  const applySizing = (drawPreview: boolean) => {
+    const { width, height } = getCanvasSize();
+    const nextResolution = getResolution(width, height);
+    const sizeChanged = width !== p5.width || height !== p5.height;
+    const resolutionChanged = nextResolution !== resolution;
+
+    if (!sizeChanged && !resolutionChanged) return;
+
+    if (sizeChanged) {
+      p5.resizeCanvas(width, height);
+    }
+
+    resolution = nextResolution;
+    cols = Math.floor(p5.width / resolution);
+    rows = Math.floor(p5.height / resolution);
+    initBuffers();
+    seedGrid(drawPreview);
+    resume();
+  };
+
+  p5.setup = () => {
+    const { width, height } = getCanvasSize();
+    p5.createCanvas(width, height).parent('sketch-holder');
+    p5.colorMode(p5.HSB, 360, 255, 255);
+    resolution = getResolution(width, height);
+    cols = Math.floor(p5.width / resolution);
+    rows = Math.floor(p5.height / resolution);
+
+    initBuffers();
+    seedGrid(true);
   };
 
   p5.mousePressed = () => {
@@ -186,5 +225,9 @@ export function sketch(p5: p5) {
       setPaused(true);
       p5.noLoop();
     }
+  };
+
+  p5.windowResized = () => {
+    applySizing(false);
   };
 }
